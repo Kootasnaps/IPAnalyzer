@@ -1,0 +1,45 @@
+name: Test Location Mover on Android Emulator
+on:
+  push:
+    branches:
+      - build/location-mover-apk-2026-11-17
+    paths:
+      - 'location-mover/**'
+      - '.github/workflows/location-mover-smoke.yml'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Check Android SDK tooling
+        run: |
+          SDK_TOOL=$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          test -n "$SDK_TOOL"
+          yes | "$SDK_TOOL" --licenses > /dev/null || true
+          "$SDK_TOOL" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Assemble app
+        working-directory: location-mover
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Install and launch on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r location-mover/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.locationmover.privategps/.MainActivity
+            sleep 5
+            adb shell pidof com.locationmover.privategps
