@@ -36,8 +36,12 @@ jobs:
           gradle-version: '8.9'
       - name: Compile signed debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Verify APK exists
-        run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK and mock-location eligibility
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/debug/app-debug.apk | tee /tmp/location-mover-permissions.txt
+          grep -F 'android.permission.ACCESS_MOCK_LOCATION' /tmp/location-mover-permissions.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F 'com.locationmover.privategps'
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
